@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import TextEditor from "@/components/upload/TextEditor";
+import FileDropZone from "@/components/upload/FileDropZone";
 import ExamplePicker from "@/components/upload/ExamplePicker";
 
 export default function UploadPage() {
@@ -21,7 +22,7 @@ export default function UploadPage() {
       </p>
 
       <div className="space-y-8">
-        <TextEditor onSubmit={handleSubmit} />
+        <FileDropZone onSubmit={handleSubmit} />
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-slate-200 dark:border-slate-700" />
@@ -30,6 +31,7 @@ export default function UploadPage() {
             <span className="bg-white dark:bg-slate-900 px-2 text-slate-500">或</span>
           </div>
         </div>
+        <TextEditor onSubmit={handleSubmit} />
         <ExamplePicker onSelect={handleSubmit} />
       </div>
     </main>
