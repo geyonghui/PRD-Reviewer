@@ -10,10 +10,15 @@ export default function FileDropZone({ onSubmit }: FileDropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dragCounter = useRef(0);
 
   const handleFile = useCallback(async (file: File) => {
     if (!file.name.endsWith(".md") && !file.name.endsWith(".markdown") && !file.name.endsWith(".txt")) {
       alert("请上传 .md、.markdown 或 .txt 文件");
+      return;
+    }
+    if (file.size > 500 * 1024) {
+      alert("文件过大（最大500KB），请精简后重试");
       return;
     }
     setIsLoading(true);
@@ -33,18 +38,24 @@ export default function FileDropZone({ onSubmit }: FileDropZoneProps) {
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    dragCounter.current = 0;
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) handleFile(file);
   }, [handleFile]);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    dragCounter.current++;
     setIsDragging(true);
   }, []);
 
-  const handleDragLeave = useCallback(() => {
-    setIsDragging(false);
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
   }, []);
 
   const handleClick = () => inputRef.current?.click();
@@ -58,7 +69,7 @@ export default function FileDropZone({ onSubmit }: FileDropZoneProps) {
   return (
     <div
       onDrop={handleDrop}
-      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onClick={handleClick}
       className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition ${

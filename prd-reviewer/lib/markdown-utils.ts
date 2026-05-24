@@ -7,16 +7,17 @@ export function extractSections(markdown: string): Section[] {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    const h1Match = line.match(/^# (.+)$/);
     const h2Match = line.match(/^## (.+)$/);
     const h3Match = line.match(/^### (.+)$/);
 
-    if (h2Match || h3Match) {
+    if (h1Match || h2Match || h3Match) {
       if (currentSection) {
         currentSection.content = lines.slice(currentSection.startIndex, i).join("\n").trim();
       }
       currentSection = {
-        title: (h2Match?.[1] || h3Match?.[1] || "").trim(),
-        level: h2Match ? 2 : 3,
+        title: (h1Match?.[1] || h2Match?.[1] || h3Match?.[1] || "").trim(),
+        level: h1Match ? 1 : h2Match ? 2 : 3,
         content: "",
         startIndex: i,
       };
@@ -26,6 +27,26 @@ export function extractSections(markdown: string): Section[] {
 
   if (currentSection) {
     currentSection.content = lines.slice(currentSection.startIndex).join("\n").trim();
+  }
+
+  // Capture content before the first heading
+  if (sections.length > 0 && sections[0].startIndex > 0) {
+    const preamble = lines.slice(0, sections[0].startIndex).join("\n").trim();
+    if (preamble.length > 50) {
+      sections.unshift({
+        title: "文档概述",
+        level: 2,
+        content: preamble,
+        startIndex: 0,
+      });
+    }
+  } else if (sections.length === 0 && markdown.trim().length > 0) {
+    sections.push({
+      title: "全文",
+      level: 2,
+      content: markdown.trim(),
+      startIndex: 0,
+    });
   }
 
   return sections;

@@ -1,7 +1,7 @@
 "use client";
-import { Issue, ReviewSummary } from "@/types";
+import { Issue, IssueAction, ReviewSummary } from "@/types";
 
-function generateReport(issues: Issue[], summary: ReviewSummary | null, fileName: string): string {
+function generateReport(issues: Issue[], summary: ReviewSummary | null, fileName: string, issueActions?: Record<string, IssueAction>): string {
   const now = new Date().toLocaleDateString("zh-CN");
   const severityLabel = (s: string) => s === "high" ? "高" : s === "medium" ? "中" : "低";
   const dimensionLabel = (d: string) => {
@@ -22,15 +22,17 @@ function generateReport(issues: Issue[], summary: ReviewSummary | null, fileName
     if (group.length === 0) continue;
     report += `## ${severityLabel(severity)}严重度问题\n`;
     group.forEach((issue, idx) => {
-      report += `${idx + 1}. [${dimensionLabel(issue.dimension)}] ${issue.section} - ${issue.description}\n   建议：${issue.suggestion}\n\n`;
+      const action = issueActions?.[issue.id];
+      const actionLabel = action === "adopted" ? " ✅已采纳" : action === "ignored" ? " ⏭已忽略" : "";
+      report += `${idx + 1}. [${dimensionLabel(issue.dimension)}] ${issue.section} - ${issue.description}${actionLabel}\n   建议：${issue.suggestion}\n\n`;
     });
   }
   return report;
 }
 
-export default function ExportButton({ issues, summary, fileName }: { issues: Issue[]; summary: ReviewSummary | null; fileName: string }) {
+export default function ExportButton({ issues, summary, fileName, issueActions }: { issues: Issue[]; summary: ReviewSummary | null; fileName: string; issueActions?: Record<string, IssueAction> }) {
   const handleExport = () => {
-    const report = generateReport(issues, summary, fileName);
+    const report = generateReport(issues, summary, fileName, issueActions);
     const blob = new Blob([report], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -39,10 +41,14 @@ export default function ExportButton({ issues, summary, fileName }: { issues: Is
     a.click();
     URL.revokeObjectURL(url);
   };
-  const handleCopyAll = () => {
-    const report = generateReport(issues, summary, fileName);
-    navigator.clipboard.writeText(report);
-    alert("已复制到剪贴板");
+  const handleCopyAll = async () => {
+    try {
+      const report = generateReport(issues, summary, fileName, issueActions);
+      await navigator.clipboard.writeText(report);
+      alert("已复制到剪贴板");
+    } catch {
+      alert("复制失败，请手动复制");
+    }
   };
   return (
     <div className="flex gap-2">

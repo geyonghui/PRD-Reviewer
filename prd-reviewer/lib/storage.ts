@@ -9,8 +9,12 @@ export function saveIssueActions(actions: Record<string, IssueAction>): void {
 
 export function loadIssueActions(): Record<string, IssueAction> {
   if (typeof window === "undefined") return {};
-  const data = localStorage.getItem(STORAGE_PREFIX + "issue-actions");
-  return data ? JSON.parse(data) : {};
+  try {
+    const data = localStorage.getItem(STORAGE_PREFIX + "issue-actions");
+    return data ? JSON.parse(data) : {};
+  } catch {
+    return {};
+  }
 }
 
 export function saveReviewResult(result: ReviewResult): void {
@@ -20,8 +24,27 @@ export function saveReviewResult(result: ReviewResult): void {
 
 export function loadReviewResult(): ReviewResult | null {
   if (typeof window === "undefined") return null;
-  const data = localStorage.getItem(STORAGE_PREFIX + "review-result");
-  return data ? JSON.parse(data) : null;
+  try {
+    const data = localStorage.getItem(STORAGE_PREFIX + "review-result");
+    return data ? JSON.parse(data) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveReviewFileName(fileName: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(STORAGE_PREFIX + "review-filename", JSON.stringify(fileName));
+}
+
+export function loadReviewFileName(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const data = localStorage.getItem(STORAGE_PREFIX + "review-filename");
+    return data ? JSON.parse(data) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function clearAll(): void {

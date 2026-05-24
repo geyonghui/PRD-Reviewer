@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Issue, ReviewResult, IssueAction } from "@/types";
 import MarkdownViewer from "@/components/review/MarkdownViewer";
@@ -9,7 +9,7 @@ import QualitySummary from "@/components/review/QualitySummary";
 import PositiveFeedback from "@/components/review/PositiveFeedback";
 import SkeletonLoader from "@/components/review/SkeletonLoader";
 import ExportButton from "@/components/review/ExportButton";
-import { loadIssueActions, saveIssueActions, saveReviewResult, loadReviewResult } from "@/lib/storage";
+import { loadIssueActions, saveIssueActions, saveReviewResult, loadReviewResult, saveReviewFileName, loadReviewFileName, clearAll } from "@/lib/storage";
 
 export default function ReviewPage() {
   const router = useRouter();
@@ -26,6 +26,7 @@ export default function ReviewPage() {
     { name: "术语一致性", status: "pending" },
     { name: "竞品与数据", status: "pending" },
   ]);
+  const isReviewingRef = useRef(false);
 
   useEffect(() => {
     const savedContent = sessionStorage.getItem("prd-content");
@@ -38,11 +39,13 @@ export default function ReviewPage() {
     setFileName(savedFileName || "PRD文档");
     setIssueActions(loadIssueActions());
     const savedResult = loadReviewResult();
-    if (savedResult) {
+    const savedResultFileName = loadReviewFileName();
+    if (savedResult && savedResultFileName === savedFileName) {
       setIssues(savedResult.issues);
       setSummary(savedResult.summary);
       setStatus("done");
     } else {
+      clearAll();
       startReview(savedContent);
     }
   }, []);
@@ -50,6 +53,8 @@ export default function ReviewPage() {
   useEffect(() => { saveIssueActions(issueActions); }, [issueActions]);
 
   const startReview = async (docContent: string) => {
+    if (isReviewingRef.current) return;
+    isReviewingRef.current = true;
     setStatus("analyzing");
     setError("");
     setIssues([]);
@@ -76,10 +81,13 @@ export default function ReviewPage() {
       setSummary(data.summary);
       setStatus("done");
       saveReviewResult({ issues: data.issues, summary: data.summary });
+      saveReviewFileName(fileName);
       setProgressSteps((prev) => prev.map((s) => ({ ...s, status: "done" as "done" })));
     } catch (err: any) {
       setError(err.message);
       setStatus("error");
+    } finally {
+      isReviewingRef.current = false;
     }
   };
 
@@ -104,17 +112,25 @@ export default function ReviewPage() {
   return (
     <main className="min-h-screen flex flex-col">
       <header className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-        <div>
-          <h1 className="text-xl font-bold">{fileName}</h1>
-          <span className="text-sm text-slate-500">
-            {status === "analyzing" && "正在检查..."}
-            {status === "done" && `检查完成，共发现 ${issues.length} 个问题`}
-            {status === "error" && "检查出错"}
-          </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push("/upload")}
+            className="px-3 py-1 border border-slate-300 dark:border-slate-600 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+          >
+            ← 返回
+          </button>
+          <div>
+            <h1 className="text-xl font-bold">{fileName}</h1>
+            <span className="text-sm text-slate-500">
+              {status === "analyzing" && "正在检查..."}
+              {status === "done" && `检查完成，共发现 ${issues.length} 个问题`}
+              {status === "error" && "检查出错"}
+            </span>
+          </div>
         </div>
         <div className="flex gap-2">
           {status === "done" && (
-            <ExportButton issues={issues} summary={summary} fileName={fileName} />
+            <ExportButton issues={issues} summary={summary} fileName={fileName} issueActions={issueActions} />
           )}
           <button
             onClick={() => startReview(content)}
