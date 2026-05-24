@@ -158,6 +158,13 @@ export default function ReviewPage() {
             </>
           )}
 
+          {status === "done" && issues.length === 0 && (
+            <div className="p-6 text-center text-green-700 dark:text-green-400">
+              <p className="text-lg font-medium mb-2">文档质量很好！</p>
+              <p className="text-sm">AI未发现明显问题</p>
+            </div>
+          )}
+
           {issues.map((issue) => (
             <div
               key={issue.id}

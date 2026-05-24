@@ -1,6 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
+@plugin "@tailwindcss/typography";
+
+@variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --color-primary: #2563EB;
   --color-success: #22C55E;

@@ -7,7 +7,7 @@ import Anthropic from "@anthropic-ai/sdk";
 const MIMO_MODEL = "mimo-v2.5-pro";
 
 const client = new Anthropic({
-  apiKey: process.env.MIMO_API_KEY || "tp-c1bt6nwktgtfqst96vt2oa63524vzmolfq6uzh0hocmv8vyo",
+  apiKey: process.env.MIMO_API_KEY,
   baseURL: "https://token-plan-cn.xiaomimimo.com/anthropic",
 });
 

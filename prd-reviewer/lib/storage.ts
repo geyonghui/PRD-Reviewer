@@ -1,4 +1,4 @@
-import { IssueAction, ReviewResult, DocumentState } from "@/types";
+import { IssueAction, ReviewResult } from "@/types";
 
 const STORAGE_PREFIX = "prd-reviewer:";
 
@@ -21,17 +21,6 @@ export function saveReviewResult(result: ReviewResult): void {
 export function loadReviewResult(): ReviewResult | null {
   if (typeof window === "undefined") return null;
   const data = localStorage.getItem(STORAGE_PREFIX + "review-result");
-  return data ? JSON.parse(data) : null;
-}
-
-export function saveDocument(doc: DocumentState): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_PREFIX + "document", JSON.stringify(doc));
-}
-
-export function loadDocument(): DocumentState | null {
-  if (typeof window === "undefined") return null;
-  const data = localStorage.getItem(STORAGE_PREFIX + "document");
   return data ? JSON.parse(data) : null;
 }
 
