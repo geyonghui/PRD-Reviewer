@@ -6,7 +6,8 @@
     "build": "next build",
     "dev": "next dev",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "export-conversation": "node scripts/export-conversation.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
