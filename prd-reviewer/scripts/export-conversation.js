@@ -20,7 +20,8 @@ const DEFAULT_OUTPUT = path.join(__dirname, '..', 'conversation-export.md');
 
 function findLatestSession() {
   const projectsDir = path.join(process.env.USERPROFILE || process.env.HOME, '.claude/projects');
-  const projectPath = process.env.CLAUDE_PROJECT_PATH || 'D--ruiqi-AI-PRD';
+  const cwd = process.cwd().replace(/[:/\\]/g, '-').replace(/^-/, '');
+  const projectPath = process.env.CLAUDE_PROJECT_PATH || cwd;
   const projectDir = path.join(projectsDir, projectPath);
 
   if (!fs.existsSync(projectDir)) {
