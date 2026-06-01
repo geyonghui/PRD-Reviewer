@@ -1,5 +1,8 @@
 import { Issue, IssueDimension, Severity } from "./types";
 
+const VALID_DIMENSIONS: IssueDimension[] = ["logic", "boundary", "terminology", "competitor"];
+const VALID_SEVERITIES: Severity[] = ["high", "medium", "low"];
+
 function djb2(str: string): string {
   let hash = 5381;
   for (let i = 0; i < str.length; i++) {
@@ -17,20 +20,31 @@ export function generateIssueId(
   return `${dimension}-${section}-${djb2(prefix)}`;
 }
 
-export function parseIssue(raw: Record<string, unknown>): Issue {
+export function parseIssue(raw: Record<string, unknown>): Issue | null {
+  // 校验必填字段
+  if (typeof raw.dimension !== "string" || !VALID_DIMENSIONS.includes(raw.dimension as IssueDimension)) {
+    return null;
+  }
+  if (typeof raw.severity !== "string" || !VALID_SEVERITIES.includes(raw.severity as Severity)) {
+    return null;
+  }
+  if (typeof raw.section !== "string" || typeof raw.description !== "string" || typeof raw.suggestion !== "string") {
+    return null;
+  }
+
   return {
     id: generateIssueId(
       raw.dimension as IssueDimension,
-      raw.section as string,
-      raw.description as string
+      raw.section,
+      raw.description
     ),
     dimension: raw.dimension as IssueDimension,
     severity: raw.severity as Severity,
-    section: raw.section as string,
-    description: raw.description as string,
-    suggestion: raw.suggestion as string,
+    section: raw.section,
+    description: raw.description,
+    suggestion: raw.suggestion,
     confidence: typeof raw.confidence === "number" ? raw.confidence : 0.5,
-    positiveNote: raw.positiveNote as string | undefined,
+    positiveNote: typeof raw.positiveNote === "string" ? raw.positiveNote : undefined,
   };
 }
 

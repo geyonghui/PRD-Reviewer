@@ -7,7 +7,7 @@ import QualitySummary from "../components/review/QualitySummary";
 import PositiveFeedback from "../components/review/PositiveFeedback";
 import SkeletonLoader from "../components/review/SkeletonLoader";
 import ExportButton from "../components/review/ExportButton";
-import { loadIssueActions, saveIssueActions, saveReviewResult, loadReviewResult, saveReviewFileName, loadReviewFileName, clearAll } from "../lib/storage";
+import { loadIssueActions, saveIssueActions, saveReviewResult, loadReviewResult, saveReviewFileName, loadReviewFileName, clearAll, saveToHistory } from "../lib/storage";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 
@@ -20,13 +20,10 @@ export default function Review() {
   const [status, setStatus] = useState<"idle" | "analyzing" | "done" | "error">("idle");
   const [error, setError] = useState("");
   const [issueActions, setIssueActions] = useState<Record<string, IssueAction>>({});
-  const [progressSteps, setProgressSteps] = useState<{ name: string; status: "pending" | "active" | "done"; issueCount?: number }[]>([
-    { name: "逻辑完整性", status: "pending" },
-    { name: "边界与异常", status: "pending" },
-    { name: "术语一致性", status: "pending" },
-    { name: "竞品与数据", status: "pending" },
-  ]);
+  const [progressSteps, setProgressSteps] = useState<{ name: string; status: "pending" | "active" | "done"; issueCount?: number }[]>([]);
+  const [highlightedSection, setHighlightedSection] = useState<string | undefined>();
   const isReviewingRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const savedContent = sessionStorage.getItem("prd-content");
@@ -59,35 +56,82 @@ export default function Review() {
     setError("");
     setIssues([]);
     setSummary(null);
-    setProgressSteps([
-      { name: "逻辑完整性", status: "active" },
-      { name: "边界与异常", status: "pending" },
-      { name: "术语一致性", status: "pending" },
-      { name: "竞品与数据", status: "pending" },
-    ]);
+    setProgressSteps([]);
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
-      const res = await fetch(`${API_URL}/api/review`, {
+      const res = await fetch(`${API_URL}/api/review-stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: docContent }),
+        signal: controller.signal,
       });
+
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "检查失败");
+        const text = await res.text();
+        let msg = `HTTP ${res.status}`;
+        try { msg = JSON.parse(text).error || msg; } catch { msg = text || msg; }
+        throw new Error(msg);
       }
-      const data = await res.json();
-      setIssues(data.issues);
-      setSummary(data.summary);
-      setStatus("done");
-      saveReviewResult({ issues: data.issues, summary: data.summary });
-      saveReviewFileName(fileName);
-      setProgressSteps((prev) => prev.map((s) => ({ ...s, status: "done" as "done" })));
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      const allIssues: Issue[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        let eventType = "";
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            eventType = line.slice(7);
+          } else if (line.startsWith("data: ")) {
+            const data = JSON.parse(line.slice(6));
+
+            if (eventType === "start") {
+              const steps = Array.from({ length: data.totalChunks }, (_, i) => ({
+                name: data.totalChunks === 1 ? "文档审查" : `第 ${i + 1}/${data.totalChunks} 部分`,
+                status: (i === 0 ? "active" : "pending") as "pending" | "active" | "done",
+              }));
+              setProgressSteps(steps);
+            } else if (eventType === "chunk_start") {
+              setProgressSteps((prev) =>
+                prev.map((s, i) => i === data.index ? { ...s, status: "active" } : s)
+              );
+            } else if (eventType === "chunk_done") {
+              allIssues.push(...data.issues);
+              setIssues([...allIssues]);
+              setProgressSteps((prev) =>
+                prev.map((s, i) => i === data.index ? { ...s, status: "done", issueCount: data.chunkIssueCount } : s)
+              );
+            } else if (eventType === "done") {
+              setIssues(data.issues);
+              setSummary(data.summary);
+              setStatus("done");
+              saveReviewResult({ issues: data.issues, summary: data.summary });
+              saveReviewFileName(fileName);
+              saveToHistory(fileName, { issues: data.issues, summary: data.summary }, docContent);
+            } else if (eventType === "error") {
+              throw new Error(data.error);
+            }
+          }
+        }
+      }
     } catch (err: unknown) {
+      if ((err as Error).name === "AbortError") return;
       setError(err instanceof Error ? err.message : "检查失败");
       setStatus("error");
     } finally {
       isReviewingRef.current = false;
+      abortRef.current = null;
     }
   };
 
@@ -122,7 +166,7 @@ export default function Review() {
           <div>
             <h1 className="text-xl font-bold">{fileName}</h1>
             <span className="text-sm text-slate-500">
-              {status === "analyzing" && "正在检查..."}
+              {status === "analyzing" && `正在检查... 已发现 ${issues.length} 个问题`}
               {status === "done" && `检查完成，共发现 ${issues.length} 个问题`}
               {status === "error" && "检查出错"}
             </span>
@@ -133,10 +177,24 @@ export default function Review() {
             <ExportButton issues={issues} summary={summary} fileName={fileName} issueActions={issueActions} />
           )}
           <button
-            onClick={() => startReview(content)}
+            onClick={() => navigate("/history")}
+            className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+          >
+            历史
+          </button>
+          <button
+            onClick={() => {
+              if (status === "analyzing" && abortRef.current) {
+                abortRef.current.abort();
+                setStatus("idle");
+                isReviewingRef.current = false;
+              } else {
+                startReview(content);
+              }
+            }}
             className="px-4 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50 transition"
           >
-            重新检查
+            {status === "analyzing" ? "停止" : "重新检查"}
           </button>
         </div>
       </header>
@@ -149,8 +207,8 @@ export default function Review() {
               <SkeletonLoader />
             </div>
           )}
-          {status !== "analyzing" && content && (
-            <MarkdownViewer content={content} />
+          {content && (
+            <MarkdownViewer content={content} highlightedSection={highlightedSection} />
           )}
         </div>
 
@@ -185,8 +243,7 @@ export default function Review() {
             <div
               key={issue.id}
               onClick={() => {
-                const el = document.getElementById(`heading-${issue.section}`);
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                setHighlightedSection(issue.section);
               }}
               className={`p-4 mb-3 border rounded-lg cursor-pointer hover:border-primary/50 transition ${
                 issueActions[issue.id] === "adopted"

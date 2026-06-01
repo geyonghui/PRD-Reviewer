@@ -4,6 +4,7 @@ import ThemeToggle from "./components/ThemeToggle";
 import Landing from "./pages/Landing";
 import Upload from "./pages/Upload";
 import Review from "./pages/Review";
+import History from "./pages/History";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="/review" element={<Review />} />
+          <Route path="/history" element={<History />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

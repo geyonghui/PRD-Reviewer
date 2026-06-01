@@ -63,20 +63,24 @@ export function chunkDocument(markdown: string, maxChars: number = 8000): Docume
 
   const sections = extractSections(markdown);
   if (sections.length === 0) {
-    const chunks: DocumentChunk[] = [];
-    for (let i = 0; i < markdown.length; i += maxChars) {
-      chunks.push({
-        content: markdown.slice(i, i + maxChars),
-        sectionHint: `第${chunks.length + 1}部分`,
-      });
-    }
-    return chunks;
+    return splitByLength(markdown, maxChars, "部分");
   }
 
   const chunks: DocumentChunk[] = [];
   let currentChunk = "";
 
   for (const section of sections) {
+    // 单个章节超过 maxChars 时，先提交当前累积的 chunk，再对大章节做子分块
+    if (section.content.length > maxChars) {
+      if (currentChunk.trim()) {
+        chunks.push({ content: currentChunk.trim(), sectionHint: chunks.length === 0 ? "" : `第${chunks.length + 1}部分` });
+        currentChunk = "";
+      }
+      const subChunks = splitByLength(section.content, maxChars, `${section.title}·第{N}段`);
+      chunks.push(...subChunks);
+      continue;
+    }
+
     if (currentChunk.length + section.content.length > maxChars && currentChunk.length > 0) {
       chunks.push({ content: currentChunk, sectionHint: chunks.length === 0 ? "" : `第${chunks.length + 1}部分` });
       currentChunk = "";
@@ -88,5 +92,18 @@ export function chunkDocument(markdown: string, maxChars: number = 8000): Docume
     chunks.push({ content: currentChunk.trim(), sectionHint: `第${chunks.length + 1}部分` });
   }
 
+  return chunks;
+}
+
+/** 按字符数硬切分，用于无章节结构或超大章节的子分块 */
+function splitByLength(text: string, maxChars: number, hintTemplate: string): DocumentChunk[] {
+  const chunks: DocumentChunk[] = [];
+  for (let i = 0; i < text.length; i += maxChars) {
+    const hint = hintTemplate.replace("{N}", String(chunks.length + 1));
+    chunks.push({
+      content: text.slice(i, i + maxChars),
+      sectionHint: hint,
+    });
+  }
   return chunks;
 }

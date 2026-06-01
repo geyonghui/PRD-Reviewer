@@ -14,7 +14,15 @@ export default function Upload() {
 
   return (
     <main className="min-h-screen p-6 md:p-12 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-2">PRD Reviewer</h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-3xl font-bold">PRD Reviewer</h1>
+        <button
+          onClick={() => navigate("/history")}
+          className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition"
+        >
+          审查历史
+        </button>
+      </div>
       <p className="text-slate-600 dark:text-slate-400 mb-8">
         上传或粘贴你的PRD文档，AI将帮你检查其中的问题
       </p>
